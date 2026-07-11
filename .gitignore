@@ -1,0 +1,10 @@
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.log
+
+# Local debug screenshots.
+error_screenshot.png
+search_page.png
