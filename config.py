@@ -42,3 +42,7 @@ AVAILABLE_RESIDENCES_FILE = os.getenv(
     "AVAILABLE_RESIDENCES_FILE",
     os.getenv("SEEN_RESIDENCES_FILE", "available_residences_marseille.txt"),
 )
+DAILY_SUMMARY_FILE = os.getenv(
+    "DAILY_SUMMARY_FILE", "daily_summary_marseille.json"
+)
+SUMMARY_TIMEZONE = os.getenv("SUMMARY_TIMEZONE", "Europe/Paris")

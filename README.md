@@ -9,6 +9,11 @@ Le fichier `available_residences_marseille.txt` contient les offres presentes
 lors du dernier controle. Une offre disparue puis remise en ligne declenche donc
 une nouvelle alerte.
 
+Le fichier `daily_summary_marseille.json` conserve les apparitions de la journee
+avec leur heure de Paris. Au premier controle apres 00:00, le bot envoie un bilan
+de la veille. Le bilan liste les heures d'apparition ou indique qu'aucun nouveau
+logement n'a ete detecte.
+
 ## Configuration Telegram
 
 1. Dans Telegram, ouvre `@BotFather`, lance `/newbot` et recupere le token.
@@ -62,4 +67,5 @@ les dix minutes. Dans `Settings > Secrets and variables > Actions`, ajoute :
 
 Lance ensuite une premiere execution depuis l'onglet `Actions` avec
 `Run workflow`. Le workflow conserve l'etat des disponibilites dans
-`available_residences_marseille.txt`.
+`available_residences_marseille.txt` et le bilan dans
+`daily_summary_marseille.json`.

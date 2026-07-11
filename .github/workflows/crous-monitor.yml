@@ -3,7 +3,7 @@ name: CROUS monitor
 on:
   workflow_dispatch:
   schedule:
-    - cron: "3,13,23,33,43,53 * * * *"
+    - cron: "*/10 * * * *"
 
 permissions:
   contents: write
@@ -46,13 +46,15 @@ jobs:
           HEADLESS: "true"
           DISABLE_SOUND: "true"
           AVAILABLE_RESIDENCES_FILE: available_residences_marseille.txt
+          DAILY_SUMMARY_FILE: daily_summary_marseille.json
+          SUMMARY_TIMEZONE: Europe/Paris
 
       - name: Commit updated availability state
         run: |
-          if [ -n "$(git status --porcelain available_residences_marseille.txt)" ]; then
+          if [ -n "$(git status --porcelain -- available_residences_marseille.txt daily_summary_marseille.json)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add available_residences_marseille.txt
+            git add available_residences_marseille.txt daily_summary_marseille.json
             git commit -m "Update CROUS Marseille availability"
             git push
           else

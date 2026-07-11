@@ -1,11 +1,14 @@
 import argparse
 import hashlib
 import html
+import json
 import logging
 import os
 import subprocess
 import time
 from dataclasses import dataclass
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import requests
 from selenium import webdriver
@@ -20,9 +23,11 @@ from config import (
     BROWSER_BINARY,
     CHECK_INTERVAL_SECONDS,
     CHROMEDRIVER_PATH,
+    DAILY_SUMMARY_FILE,
     DISABLE_SOUND,
     HEADLESS,
     MARSEILLE_SEARCH_URL,
+    SUMMARY_TIMEZONE,
     TELEGRAM_BOT_TOKEN,
     TELEGRAM_CHAT_ID,
 )
@@ -64,6 +69,8 @@ class CrousMonitor:
         available_residences_file=AVAILABLE_RESIDENCES_FILE,
         browser_binary=BROWSER_BINARY,
         chromedriver_path=CHROMEDRIVER_PATH,
+        daily_summary_file=DAILY_SUMMARY_FILE,
+        summary_timezone=SUMMARY_TIMEZONE,
         headless=HEADLESS,
         disable_sound=DISABLE_SOUND,
     ):
@@ -73,11 +80,14 @@ class CrousMonitor:
         self.available_residences_file = available_residences_file
         self.browser_binary = browser_binary
         self.chromedriver_path = chromedriver_path
+        self.daily_summary_file = daily_summary_file
+        self.summary_timezone = ZoneInfo(summary_timezone)
         self.headless = headless
         self.disable_sound = disable_sound
         self.bot_token = TELEGRAM_BOT_TOKEN
         self.chat_id = TELEGRAM_CHAT_ID
         self.previous_available_ids = self.load_available_residences()
+        self.daily_summary_state = self.load_daily_summary_state()
 
     def load_available_residences(self):
         residence_ids = set()
@@ -97,6 +107,122 @@ class CrousMonitor:
         with open(self.available_residences_file, "w", encoding="utf-8") as file:
             for residence_id in sorted(residence_ids):
                 file.write(f"{residence_id}\n")
+
+    def current_paris_time(self):
+        return datetime.now(self.summary_timezone)
+
+    def load_daily_summary_state(self):
+        state = {}
+        try:
+            if os.path.exists(self.daily_summary_file):
+                with open(self.daily_summary_file, "r", encoding="utf-8") as file:
+                    state = json.load(file)
+        except (OSError, json.JSONDecodeError) as exc:
+            logging.warning("Could not load daily summary state: %s", exc)
+
+        today = self.current_paris_time().date()
+        if not state.get("tracking_started_on"):
+            state["tracking_started_on"] = today.isoformat()
+        if not state.get("last_summary_date"):
+            state["last_summary_date"] = (today - timedelta(days=1)).isoformat()
+        if not isinstance(state.get("findings_by_date"), dict):
+            state["findings_by_date"] = {}
+
+        self.save_daily_summary_state(state)
+        return state
+
+    def save_daily_summary_state(self, state=None):
+        state = state or self.daily_summary_state
+        with open(self.daily_summary_file, "w", encoding="utf-8") as file:
+            json.dump(state, file, ensure_ascii=False, indent=2, sort_keys=True)
+            file.write("\n")
+
+    def record_daily_findings(self, new_listings):
+        now = self.current_paris_time()
+        day_key = now.date().isoformat()
+        findings = self.daily_summary_state["findings_by_date"].setdefault(
+            day_key, []
+        )
+
+        for listing in new_listings:
+            findings.append(
+                {
+                    "residence_id": listing.residence_id,
+                    "appeared_at": now.isoformat(timespec="seconds"),
+                    "time": now.strftime("%H:%M"),
+                    "title": listing.title,
+                    "address": listing.address,
+                    "price": listing.price,
+                    "url": listing.url,
+                }
+            )
+
+        self.save_daily_summary_state()
+
+    def build_daily_summary_messages(self, summary_date, findings):
+        display_date = summary_date.strftime("%d/%m/%Y")
+        header = f"<b>BILAN CROUS MARSEILLE - {display_date}</b>"
+        footer = (
+            f"\n\n<a href='{html.escape(self.search_url, quote=True)}'>"
+            "Voir la recherche CROUS Marseille</a>"
+        )
+
+        if not findings:
+            return [
+                header
+                + "\n\nAucun nouveau logement detecte a Marseille pendant la journee."
+                + footer
+            ]
+
+        messages = []
+        current_message = header + f"\n\n{len(findings)} apparition(s) detectee(s) :"
+        for finding in findings:
+            details = [
+                f"<b>{html.escape(finding.get('time', '--:--'))}</b> - "
+                f"{html.escape(finding.get('title', 'Logement CROUS Marseille'))}",
+                html.escape(finding.get("address", "Marseille")),
+            ]
+            if finding.get("price"):
+                details.append(html.escape(finding["price"]))
+            block = "\n\n" + "\n".join(details)
+
+            if len(current_message) + len(block) + len(footer) > MAX_TELEGRAM_MESSAGE_LENGTH:
+                messages.append(current_message + footer)
+                current_message = header + block
+            else:
+                current_message += block
+
+        messages.append(current_message + footer)
+        return messages
+
+    def send_due_daily_summaries(self):
+        today = self.current_paris_time().date()
+        tracking_started = date.fromisoformat(
+            self.daily_summary_state["tracking_started_on"]
+        )
+        last_summary_date = date.fromisoformat(
+            self.daily_summary_state["last_summary_date"]
+        )
+        target_date = last_summary_date + timedelta(days=1)
+
+        while target_date < today:
+            if target_date >= tracking_started:
+                day_key = target_date.isoformat()
+                findings = self.daily_summary_state["findings_by_date"].get(
+                    day_key, []
+                )
+                messages = self.build_daily_summary_messages(target_date, findings)
+                if not self.send_telegram_messages(messages):
+                    logging.warning("Daily summary will be retried on the next check")
+                    return False
+                logging.info("Daily Telegram summary sent for %s", day_key)
+                self.daily_summary_state["findings_by_date"].pop(day_key, None)
+
+            self.daily_summary_state["last_summary_date"] = target_date.isoformat()
+            self.save_daily_summary_state()
+            target_date += timedelta(days=1)
+
+        return True
 
     def setup_driver(self):
         options = Options()
@@ -304,6 +430,7 @@ class CrousMonitor:
             if not self.send_telegram_messages(self.build_notifications(new_listings)):
                 logging.warning("Availability state was not changed; notification will retry")
                 return False
+            self.record_daily_findings(new_listings)
             self.play_sound_notification()
         else:
             logging.info("No new Marseille listings")
@@ -316,6 +443,11 @@ class CrousMonitor:
 
     def monitor(self, once=False):
         while True:
+            try:
+                self.send_due_daily_summaries()
+            except Exception:
+                logging.exception("Daily Telegram summary failed")
+
             check_succeeded = False
             last_error = None
 
