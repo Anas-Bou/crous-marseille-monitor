@@ -11,6 +11,7 @@ import requests
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
@@ -18,6 +19,7 @@ from config import (
     AVAILABLE_RESIDENCES_FILE,
     BROWSER_BINARY,
     CHECK_INTERVAL_SECONDS,
+    CHROMEDRIVER_PATH,
     DISABLE_SOUND,
     HEADLESS,
     MARSEILLE_SEARCH_URL,
@@ -61,6 +63,7 @@ class CrousMonitor:
         interval_seconds=CHECK_INTERVAL_SECONDS,
         available_residences_file=AVAILABLE_RESIDENCES_FILE,
         browser_binary=BROWSER_BINARY,
+        chromedriver_path=CHROMEDRIVER_PATH,
         headless=HEADLESS,
         disable_sound=DISABLE_SOUND,
     ):
@@ -69,6 +72,7 @@ class CrousMonitor:
         self.interval_seconds = interval_seconds
         self.available_residences_file = available_residences_file
         self.browser_binary = browser_binary
+        self.chromedriver_path = chromedriver_path
         self.headless = headless
         self.disable_sound = disable_sound
         self.bot_token = TELEGRAM_BOT_TOKEN
@@ -109,7 +113,12 @@ class CrousMonitor:
             options.binary_location = self.browser_binary
             logging.info("Using browser binary: %s", self.browser_binary)
 
-        driver = webdriver.Chrome(options=options)
+        service = (
+            Service(executable_path=self.chromedriver_path)
+            if self.chromedriver_path
+            else Service()
+        )
+        driver = webdriver.Chrome(service=service, options=options)
         driver.set_page_load_timeout(45)
         logging.info("Browser started successfully")
         return driver

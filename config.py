@@ -37,6 +37,7 @@ CHECK_INTERVAL_SECONDS = env_int("CHECK_INTERVAL_SECONDS", 120)
 HEADLESS = env_bool("HEADLESS", True)
 DISABLE_SOUND = env_bool("DISABLE_SOUND", False)
 BROWSER_BINARY = os.getenv("CHROME_BINARY") or os.getenv("BROWSER_BINARY")
+CHROMEDRIVER_PATH = os.getenv("CHROMEDRIVER_PATH")
 AVAILABLE_RESIDENCES_FILE = os.getenv(
     "AVAILABLE_RESIDENCES_FILE",
     os.getenv("SEEN_RESIDENCES_FILE", "available_residences_marseille.txt"),
