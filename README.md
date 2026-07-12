@@ -60,7 +60,9 @@ intervention manuelle.
 ## GitHub Actions
 
 Le workflow `.github/workflows/crous-monitor.yml` effectue un controle toutes
-les dix minutes. Dans `Settings > Secrets and variables > Actions`, ajoute :
+les dix minutes, aux minutes 07, 17, 27, 37, 47 et 57 pour eviter les creneaux
+GitHub Actions les plus charges. Dans
+`Settings > Secrets and variables > Actions`, ajoute :
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
