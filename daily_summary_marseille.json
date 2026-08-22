@@ -1,17 +1,5 @@
 {
-  "findings_by_date": {
-    "2026-08-22": [
-      {
-        "address": "171 avenue de Luminy - 13288 Marseille cedex 9",
-        "appeared_at": "2026-08-22T15:05:45+02:00",
-        "price": "350 €",
-        "residence_id": "8d0a2723db1ba38cf285f04ae111ab5dd1be2601263ff364d720829c2d431dd8",
-        "time": "15:05",
-        "title": "CITE LUMINY",
-        "url": "https://trouverunlogement.lescrous.fr/tools/47/accommodations/1165"
-      }
-    ]
-  },
-  "last_summary_date": "2026-08-21",
+  "findings_by_date": {},
+  "last_summary_date": "2026-08-22",
   "tracking_started_on": "2026-07-12"
 }
